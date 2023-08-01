@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace geoPlankNetworks.Components
 {
-    public class geoPlankNetworksComponent : GH_Component
+    public class templateComponent : GH_Component
     {
         /// <summary>
         /// Each implementation of GH_Component must provide a public 
@@ -15,7 +15,7 @@ namespace geoPlankNetworks.Components
         /// Subcategory the panel. If you use non-existing tab or panel names, 
         /// new tabs/panels will automatically be created.
         /// </summary>
-        public geoPlankNetworksComponent()
+        public templateComponent()
           : base("geoPlankNetworksComponent", "ASpi",
             "Construct an Archimedean, or arithmetic, spiral given its radii and number of turns.",
             "gPN", "Primitive")
