@@ -6,6 +6,7 @@
     <Title>geoPlankNetworks</Title>
     <Description>Description of geoPlankNetworks</Description>
     <TargetExt>.gha</TargetExt>
+    <BaseOutputPath>C:\Users\David Andersson\source\repos\geoPlankNetworks\geoPlankNetworks\bin</BaseOutputPath>
   </PropertyGroup>
   
   <ItemGroup>

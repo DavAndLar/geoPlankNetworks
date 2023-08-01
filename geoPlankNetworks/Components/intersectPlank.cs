@@ -6,15 +6,15 @@ using Rhino.Geometry;
 
 namespace geoPlankNetworks.Components
 {
-    public class geoPlank : GH_Component
+    public class intersectPlank : GH_Component
     {
         /// <summary>
-        /// Initializes a new instance of the geoPlank class.
+        /// Initializes a new instance of the intersectPlank class.
         /// </summary>
-        public geoPlank()
-          : base("geoPlank", "P",
+        public intersectPlank()
+          : base("intersectPlank", "Nickname",
               "Description",
-              "Category", "Subcategory")
+              "gPN", "Subcategory")
         {
         }
 
@@ -23,7 +23,6 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddCurveParameter("Curve", "C", "Curve to transfor into a geodesic plank", GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -31,10 +30,6 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("Center Axis", "A", "Center axis of plank", GH_ParamAccess.tree);
-            pManager.AddBrepParameter("Mid surface", "MS", "Middle surface of plank", GH_ParamAccess.tree);
-            pManager.AddBrepParameter("Top surface","TS","Top surface of plank",GH_ParamAccess.tree);
-            pManager.AddBrepParameter("Lower surface","LS","Lower surface of plank",GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -63,7 +58,7 @@ namespace geoPlankNetworks.Components
         /// </summary>
         public override Guid ComponentGuid
         {
-            get { return new Guid("5C3595F3-3D14-4DF5-96F2-51CC5D30FC0B"); }
+            get { return new Guid("DFE3C213-AB5E-48E3-BE7E-3A381A293CEB"); }
         }
     }
 }
