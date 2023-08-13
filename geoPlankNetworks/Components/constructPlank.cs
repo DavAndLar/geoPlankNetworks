@@ -90,7 +90,6 @@ namespace geoPlankNetworks.Components
             Brep bottomSurface = Brep.CreateOffsetBrep(midSurface, -iThickness / 2, false, true, tol, out _, out _)[0];
             Brep oSolid = Brep.CreateOffsetBrep(bottomSurface, iThickness, true, true, tol, out _, out _)[0];
 
-            Curve oCenterLine = iCenterLine;
             Plank oPlank = new Plank(iCenterLine, midSurface, topSurface, bottomSurface,oSolid);
 
             DA.SetData(0, oPlank);
