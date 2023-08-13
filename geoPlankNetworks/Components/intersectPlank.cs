@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using geoPlankNetworks.DataTypes;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 
@@ -23,6 +23,8 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddGenericParameter("Plank", "P", "Plank to intersect", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Cutter Plank","C","Plank to intersect with",GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -30,6 +32,7 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
+            pManager.AddGenericParameter("Plank segments", "S", "Plank segments after intersection", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -38,6 +41,29 @@ namespace geoPlankNetworks.Components
         /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            Plank iPlank = null; 
+            Plank iCutter = null;
+
+            if (!DA.GetData(0, ref iPlank)) return;
+            if (!DA.GetData(1, ref iCutter)) return;
+
+            List<Plank> plankSegments = new List<Plank>();
+
+            double tol = Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance;
+
+            foreach (Brep midSrfSegment in iPlank.MidSurface.Split(iCutter.PlankSolid, 0.01, out _))
+            {
+                if(!iCutter.PlankSolid.IsPointInside(AreaMassProperties.Compute(midSrfSegment).Centroid, tol, true)) 
+                {
+                    Brep topSurface = Brep.CreateOffsetBrep(midSrfSegment, iPlank.PlankThickness / 2, false, true, tol, out _, out _)[0];
+                    Brep bottomSurface = Brep.CreateOffsetBrep(midSrfSegment, -iPlank.PlankThickness / 2, false, true, tol, out _, out _)[0];
+                    Brep plankSolid = Brep.CreateOffsetBrep(bottomSurface, iPlank.PlankThickness, true, true, tol, out _, out _)[0];
+
+                    plankSegments.Add(new Plank(midSrfSegment, topSurface, bottomSurface, plankSolid, iPlank.PlankThickness));
+                }
+            }
+
+            DA.SetDataList(0, plankSegments);
         }
 
         /// <summary>

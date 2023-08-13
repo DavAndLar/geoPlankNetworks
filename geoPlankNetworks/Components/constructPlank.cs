@@ -49,23 +49,31 @@ namespace geoPlankNetworks.Components
         {
 
             Curve iCenterLine = null;
-            DA.GetData(0, ref iCenterLine);
-
             Brep iBaseSrf = null;
-            DA.GetData(1, ref iBaseSrf);
-
             int iRef = 0;
-            DA.GetData(2, ref iRef);
-
             double iThickness = 0.0;
-            DA.GetData(3, ref iThickness);
-
             double iWidth = 0.0;
-            DA.GetData(4, ref iWidth);
+
+            if (!DA.GetData(0, ref iCenterLine)) return;
+            if (!DA.GetData(1, ref iBaseSrf)) return;
+            if (!DA.GetData(2, ref iRef)) return;
+            if (!DA.GetData(3, ref iThickness)) return;
+            if (!DA.GetData(4, ref iWidth)) return;
+
+            if (iThickness <= 0.0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Plank thickness needs to be bigger than 0.0");
+                return;
+            }
+
+            if (iWidth <= 0.0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Plank width needs to be bigger than 0.0");
+                return;
+            }
 
             double tol = Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance;
 
-            List<double> tList = new List<double>();
             List<Point3d> ptsOnSrf = new List<Point3d>();
             List<Vector3d> tangents = new List<Vector3d>();
             List<Vector3d> normals = new List<Vector3d>();
@@ -74,7 +82,6 @@ namespace geoPlankNetworks.Components
             for (int i = 0; i < iRef+1; i++)
             {
                 double t = Convert.ToDouble(i) / Convert.ToDouble(iRef);
-                tList.Add(t);
                 Vector3d T = iCenterLine.TangentAt(t);
                 tangents.Add(T);
                 iBaseSrf.ClosestPoint(iCenterLine.PointAt(t), out Point3d closestPt, out _, out _, out _, tol, out Vector3d N);
@@ -85,12 +92,16 @@ namespace geoPlankNetworks.Components
                 rulings.Add(new LineCurve(closestPt - binormal * (iWidth / 2), closestPt + binormal * (iWidth / 2)));
             }
 
-            var midSurface = Brep.CreateFromLoft(rulings,Point3d.Unset,Point3d.Unset,LoftType.Normal, false)[0];
+            Brep midSurface = Brep.CreateFromLoft(rulings,Point3d.Unset,Point3d.Unset,LoftType.Normal, false)[0];
             Brep topSurface = Brep.CreateOffsetBrep(midSurface, iThickness / 2, false, true, tol, out _, out _)[0];
             Brep bottomSurface = Brep.CreateOffsetBrep(midSurface, -iThickness / 2, false, true, tol, out _, out _)[0];
-            Brep oSolid = Brep.CreateOffsetBrep(bottomSurface, iThickness, true, true, tol, out _, out _)[0];
+            Brep plankSolid = Brep.CreateOffsetBrep(bottomSurface, iThickness, true, true, tol, out _, out _)[0];
+            if(plankSolid.SolidOrientation == BrepSolidOrientation.Inward)
+            {
+                plankSolid.Flip();
+            }
 
-            Plank oPlank = new Plank(iCenterLine, midSurface, topSurface, bottomSurface,oSolid);
+            Plank oPlank = new Plank(midSurface, topSurface, bottomSurface, plankSolid, iThickness);
 
             DA.SetData(0, oPlank);
         }

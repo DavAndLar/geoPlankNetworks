@@ -31,7 +31,6 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddCurveParameter("Center line", "cL", "c", GH_ParamAccess.item);
             pManager.AddBrepParameter("Mid surface", "mS", "mS", GH_ParamAccess.item);
             pManager.AddBrepParameter("Top surface", "tS", "tS", GH_ParamAccess.item);
             pManager.AddBrepParameter("Bottom surface", "bS", "bS", GH_ParamAccess.item);
@@ -45,19 +44,18 @@ namespace geoPlankNetworks.Components
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Plank iPlank = null;
-            DA.GetData(0, ref iPlank);
+            
+            if (!DA.GetData(0, ref iPlank)) return;
 
-            Curve oCenterLine = iPlank.CenterLine; 
             Brep midSurface = iPlank.MidSurface;
             Brep topSurface = iPlank.TopSurface;
             Brep bottomSurface = iPlank.BottomSurface;
             Brep plankSolid = iPlank.PlankSolid;
 
-            DA.SetData(0,oCenterLine);
-            DA.SetData(1,midSurface);
-            DA.SetData(2,topSurface);   
-            DA.SetData(3,bottomSurface);
-            DA.SetData(4,plankSolid);
+            DA.SetData(0,midSurface);
+            DA.SetData(1,topSurface);   
+            DA.SetData(2,bottomSurface);
+            DA.SetData(3,plankSolid);
         }
 
         /// <summary>

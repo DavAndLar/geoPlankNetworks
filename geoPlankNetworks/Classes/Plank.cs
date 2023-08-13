@@ -11,23 +11,23 @@ namespace geoPlankNetworks.DataTypes
 {
     public class Plank
     {
-        public Curve CenterLine;
         public Brep MidSurface;
         public Brep TopSurface;
         public Brep BottomSurface;
         public Brep PlankSolid;
+        public double PlankThickness;
 
         public Plank()
         {
         }
 
-        public Plank(Curve centerLine, Brep midSurface, Brep topSurface, Brep bottomSurface, Brep plankSolid) 
+        public Plank(Brep midSurface, Brep topSurface, Brep bottomSurface, Brep plankSolid, double plankThickness) 
         { 
-            CenterLine = centerLine;
             MidSurface = midSurface;
             TopSurface = topSurface;
             BottomSurface = bottomSurface;
             PlankSolid = plankSolid;
+            PlankThickness = plankThickness;
         }
     }
 }
