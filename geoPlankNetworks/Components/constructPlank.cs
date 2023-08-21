@@ -6,6 +6,9 @@ using Grasshopper.Kernel;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
 using geoPlankNetworks.DataTypes;
+using Grasshopper.Kernel.Data;
+using Grasshopper;
+using Rhino.Commands;
 
 namespace geoPlankNetworks.Components
 {
@@ -17,7 +20,7 @@ namespace geoPlankNetworks.Components
         public constructPlank()
           : base("Construct plank", "Plank",
               "Constructs a geodesic plank",
-              "gPN", "Subcategory")
+              "gPN", "Plank")
         {
         }
 
@@ -26,11 +29,12 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddCurveParameter("Curve", "C", "Curve to transfor into a geodesic plank", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Base Surface", "S", "Surface onto which the geodesic plank should be created", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Curve", "C", "Curve to transfor into a geodesic plank", GH_ParamAccess.tree);
+            pManager.AddGeometryParameter("Base Surface", "S", "Surface onto which the geodesic plank should be created", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Refinement", "R", "No. points along the curve where the Darboux frame should be evaluated", GH_ParamAccess.item, 10);
             pManager.AddNumberParameter("Thickness", "t", "Thickness of plank", GH_ParamAccess.item);
             pManager.AddNumberParameter("Width", "W", "Width of plank", GH_ParamAccess.item);
+            pManager.AddIntegerParameter("Layers","L","Number of plank bundles (one bundle equals the same number as geodesic directions).",GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -38,7 +42,7 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Plank", "p", "p", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Plank", "p", "p", GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -47,18 +51,19 @@ namespace geoPlankNetworks.Components
         /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-
-            Curve iCenterLine = null;
-            Brep iBaseSrf = null;
+            GH_Structure<GH_Curve> iCenterLines;
+            IGH_GeometricGoo geomInput = null;
             int iRef = 0;
             double iThickness = 0.0;
             double iWidth = 0.0;
+            int iNoLayers = 0;
 
-            if (!DA.GetData(0, ref iCenterLine)) return;
-            if (!DA.GetData(1, ref iBaseSrf)) return;
+            if (!DA.GetDataTree(0, out iCenterLines)) return;
+            if (!DA.GetData(1, ref geomInput)) return;
             if (!DA.GetData(2, ref iRef)) return;
             if (!DA.GetData(3, ref iThickness)) return;
             if (!DA.GetData(4, ref iWidth)) return;
+            if (!DA.GetData(5, ref iNoLayers)) return;
 
             if (iThickness <= 0.0)
             {
@@ -72,38 +77,81 @@ namespace geoPlankNetworks.Components
                 return;
             }
 
+            if (iNoLayers <=0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Number of layers needs to be at least 1 and positive.");
+                return;
+            }
+
             double tol = Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance;
+            int planksPerBundle = iCenterLines.Branches.Count;
+            DataTree<Plank> oPlankTree = new DataTree<Plank>();
 
-            List<Point3d> ptsOnSrf = new List<Point3d>();
-            List<Vector3d> tangents = new List<Vector3d>();
-            List<Vector3d> normals = new List<Vector3d>();
-            List<Vector3d> biNormals = new List<Vector3d>();    
-            List<LineCurve> rulings = new List<LineCurve>();
-            for (int i = 0; i < iRef+1; i++)
+            for (int i = 0; i<iCenterLines.PathCount; i++)
             {
-                double t = Convert.ToDouble(i) / Convert.ToDouble(iRef);
-                Vector3d T = iCenterLine.TangentAt(t);
-                tangents.Add(T);
-                iBaseSrf.ClosestPoint(iCenterLine.PointAt(t), out Point3d closestPt, out _, out _, out _, tol, out Vector3d N);
-                normals.Add(N);
-                ptsOnSrf.Add(closestPt);
-                Vector3d binormal = Vector3d.CrossProduct(T, N);
-                biNormals.Add(binormal);
-                rulings.Add(new LineCurve(closestPt - binormal * (iWidth / 2), closestPt + binormal * (iWidth / 2)));
+                for (int j = 0; j < iCenterLines.Branches[i].Count;j++)
+                {
+                    Curve centerLine = iCenterLines.Branches[i][j].Value;
+                    List<Vector3d> tangents = new List<Vector3d>();
+                    List<Vector3d> normals = new List<Vector3d>();
+                    List<Vector3d> biNormals = new List<Vector3d>();
+                    List<LineCurve> rulings = new List<LineCurve>();
+                    for (int k = 0; k < iRef + 1; k++)
+                    {
+                        if (geomInput is GH_Brep)
+                        {
+                            Brep iBaseSrf = ((GH_Brep)geomInput).Value;
+
+                            double t = Convert.ToDouble(k) / Convert.ToDouble(iRef);
+                            Vector3d T = centerLine.TangentAt(t);
+                            tangents.Add(T);
+                            iBaseSrf.ClosestPoint(centerLine.PointAt(t), out Point3d closestPt, out _, out _, out _, tol, out Vector3d N);
+                            normals.Add(N);
+                            Vector3d binormal = Vector3d.CrossProduct(T, N);
+                            biNormals.Add(binormal);
+                            rulings.Add(new LineCurve(closestPt - binormal * (iWidth / 2), closestPt + binormal * (iWidth / 2)));
+                        }
+                        else if (geomInput is GH_Mesh)
+                        {
+                            Mesh iBaseSrf = ((GH_Mesh)geomInput).Value;
+
+                            double t = Convert.ToDouble(k) / Convert.ToDouble(iRef);
+                            Vector3d T = centerLine.TangentAt(t);
+                            tangents.Add(T);
+                            iBaseSrf.ClosestPoint(centerLine.PointAt(t), out Point3d closestPt, out Vector3d N, tol);
+                            normals.Add(N);
+                            Vector3d binormal = Vector3d.CrossProduct(T, N);
+                            biNormals.Add(binormal);
+                            rulings.Add(new LineCurve(closestPt - binormal * (iWidth / 2), closestPt + binormal * (iWidth / 2)));
+                        }
+                        else
+                        {
+                            AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The base surface must be either a Brep or Mesh.");
+                            return;
+                        }
+                    }
+                    Brep baseMidSurface = Brep.CreateFromLoft(rulings, Point3d.Unset, Point3d.Unset, LoftType.Normal, false)[0];                   
+                    for (int l = 0; l < iNoLayers; l++)
+                    {
+                        for (int m = 0; m < planksPerBundle; m++)
+                        {
+                            Brep midSurface = Brep.CreateOffsetBrep(baseMidSurface, iThickness*(m + l*planksPerBundle), false, true, tol, out _, out _)[0];
+                            Brep bottomSurface = Brep.CreateOffsetBrep(midSurface, -iThickness / 2, false, true, tol, out _, out _)[0];
+                            Brep plankSolid = Brep.CreateOffsetBrep(bottomSurface, iThickness, true, true, tol, out _, out _)[0];
+
+                            if (plankSolid.SolidOrientation == BrepSolidOrientation.Inward)
+                            {
+                                plankSolid.Flip();
+                            }
+
+                            GH_Path path = new GH_Path(i, j, l);
+                            oPlankTree.Add(new Plank(midSurface, plankSolid, iThickness, iWidth, iRef, midSurface, m), path);
+                        }
+                    }
+                }
             }
 
-            Brep midSurface = Brep.CreateFromLoft(rulings,Point3d.Unset,Point3d.Unset,LoftType.Normal, false)[0];
-            Brep topSurface = Brep.CreateOffsetBrep(midSurface, iThickness / 2, false, true, tol, out _, out _)[0];
-            Brep bottomSurface = Brep.CreateOffsetBrep(midSurface, -iThickness / 2, false, true, tol, out _, out _)[0];
-            Brep plankSolid = Brep.CreateOffsetBrep(bottomSurface, iThickness, true, true, tol, out _, out _)[0];
-            if(plankSolid.SolidOrientation == BrepSolidOrientation.Inward)
-            {
-                plankSolid.Flip();
-            }
-
-            Plank oPlank = new Plank(midSurface, topSurface, bottomSurface, plankSolid, iThickness);
-
-            DA.SetData(0, oPlank);
+            DA.SetDataTree(0, oPlankTree);
         }
 
         /// <summary>
