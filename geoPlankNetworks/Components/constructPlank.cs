@@ -144,14 +144,25 @@ namespace geoPlankNetworks.Components
                                 plankSolid.Flip();
                             }
 
+                            List<Point3d> midPts = new List<Point3d>();
+                            for (int k = 0; k < iRef + 1; k++)
+                            {
+                                double u = 1 / Convert.ToDouble(iRef) * Convert.ToDouble(k);
+                                midSurface.Faces[0].SetDomain(0, new Interval(0.00, 1.00));
+                                midSurface.Faces[0].SetDomain(1, new Interval(0.00, 1.00));
+                                midSurface.Faces[0].Evaluate(u, 0.5, 1, out Point3d midPt, out _);
+                                midPts.Add(midPt);
+                            }
+                            NurbsCurve centerCrv = NurbsCurve.Create(false, 3, midPts);
+
                             GH_Path path = new GH_Path(i, j, l);
-                            oPlankTree.Add(new Plank(midSurface, plankSolid, iThickness, iWidth, iRef, midSurface, m), path);
+                            oPlankTree.Add(new Plank(midSurface, midSurface, new List<Brep> { plankSolid }, iThickness, iWidth, centerCrv.GetLength(), iRef, m, new List<int> { 0 }), path);
                         }
                     }
                 }
             }
 
-            DA.SetDataTree(0, oPlankTree);
+            DA.SetDataTree(0, oPlankTree); 
         }
 
         /// <summary>

@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using geoPlankNetworks.DataTypes;
+
 using Grasshopper;
 using Grasshopper.Kernel;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using Rhino.Geometry;
+
+using geoPlankNetworks.DataTypes;
 
 namespace geoPlankNetworks.Components
 {
@@ -39,7 +41,7 @@ namespace geoPlankNetworks.Components
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Plank segments", "P", "Plank segments after intersection", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Planks ", "P", "Planks after intersection", GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -66,7 +68,7 @@ namespace geoPlankNetworks.Components
             }
 
             double tol = Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance;
-            DataTree<Plank> oPlankSegments = new DataTree<Plank>();
+            DataTree<Plank> oPlanks = new DataTree<Plank>();
             DataTree<Brep> scaledCutters = new DataTree<Brep>();
 
             for (int i = 0; i < iCutterTree.PathCount; i++)
@@ -120,48 +122,64 @@ namespace geoPlankNetworks.Components
                         }
                     }
 
-                    if (plank.MidSurface.Split(cutterSolids, tol).Length > 0)
+                    List<Brep> midSrfSegments = new List<Brep>();
+                    List<Brep> solidSegments = new List<Brep>();
+                    List<int> cullValues = new List<int>();
+                    foreach (BrepFace segment in plank.IntersectedMidSrf.Faces)
                     {
-                        foreach (Brep midSrfSegment in plank.MidSurface.Split(cutterSolids, tol))
+                        Brep brepSegment = segment.DuplicateFace(false);            //convert from BrepFace to Brep
+                        if (brepSegment.Split(cutterSolids, tol).Length > 0)
                         {
-                            Point3d testPt = midSrfSegment.ClosestPoint(AreaMassProperties.Compute(midSrfSegment).Centroid);
-                            int testValue = 0;
-                            foreach (Brep cutter in cutterSolids)
+                            foreach (Brep midSrfSegment in brepSegment.Split(cutterSolids, tol))
                             {
-                                if (cutter.SolidOrientation == BrepSolidOrientation.Inward)
+                                midSrfSegments.Add(midSrfSegment);
+                                Point3d testPt = midSrfSegment.ClosestPoint(AreaMassProperties.Compute(midSrfSegment).Centroid);
+                                int cullValue = 0;
+                                foreach (Brep cutter in cutterSolids)
                                 {
-                                    cutter.Flip();
+                                    if (cutter.SolidOrientation == BrepSolidOrientation.Inward)
+                                    {
+                                        cutter.Flip();
+                                    }
+
+                                    if (cutter.IsPointInside(testPt, tol, true))
+                                    {
+                                        cullValue += 1;
+                                    }
                                 }
 
-                                if (cutter.IsPointInside(testPt, tol, true))
+                                if (cullValue < 1)
                                 {
-                                    testValue += 1;
+                                    Brep bottomSurface = Brep.CreateOffsetBrep(midSrfSegment, -plank.PlankThickness / 2, false, true, tol, out _, out _)[0];
+                                    Brep plankSolid = Brep.CreateOffsetBrep(bottomSurface, plank.PlankThickness, true, true, tol, out _, out _)[0];
+                                    solidSegments.Add(plankSolid);
                                 }
+                                cullValues.Add(cullValue);
                             }
+                        }
 
-                            if (testValue < 1)
+                        else
+                        {
+                            midSrfSegments.Add(brepSegment);
+                            cullValues.Add(plank.CullValues[segment.FaceIndex]);
+
+                            if (plank.CullValues[segment.FaceIndex] < 1)
                             {
-                                Brep bottomSurface = Brep.CreateOffsetBrep(midSrfSegment, -plank.PlankThickness / 2, false, true, tol, out _, out _)[0];
+                                Brep bottomSurface = Brep.CreateOffsetBrep(brepSegment, -plank.PlankThickness / 2, false, true, tol, out _, out _)[0];
                                 Brep plankSolid = Brep.CreateOffsetBrep(bottomSurface, plank.PlankThickness, true, true, tol, out _, out _)[0];
-
-                                GH_Path path = new GH_Path(i, j);
-                                oPlankSegments.Add(new Plank(midSrfSegment, plankSolid, plank.PlankThickness, plank.PlankWidth, plank.PlankRefinement, plank.OriginalMidSurface, plank.PlankPosition), path);
+                                solidSegments.Add(plankSolid);
                             }
                         }
                     }
 
-                    else
-                    {
-                        Brep bottomSurface = Brep.CreateOffsetBrep(plank.MidSurface, -plank.PlankThickness / 2, false, true, tol, out _, out _)[0];
-                        Brep plankSolid = Brep.CreateOffsetBrep(bottomSurface, plank.PlankThickness, true, true, tol, out _, out _)[0];
+                    Brep intersectedMidSrf = Brep.JoinBreps(midSrfSegments, tol)[0];
 
-                        GH_Path path = new GH_Path(i, j);
-                        oPlankSegments.Add(new Plank(plank.MidSurface, plankSolid, plank.PlankThickness, plank.PlankWidth, plank.PlankRefinement, plank.OriginalMidSurface, plank.PlankPosition), path);
-                    }
+                    GH_Path path = new GH_Path(iPlankTree.Paths[i]);
+                    oPlanks.Add(new Plank(plank.OriginalMidSurface, intersectedMidSrf, solidSegments, plank.PlankThickness, plank.PlankWidth, plank.PlankLength, plank.PlankRefinement, plank.PlankPosition, cullValues), path);
                 }
             }
 
-            DA.SetDataTree(0, oPlankSegments);
+            DA.SetDataTree(0, oPlanks);
         }
 
         /// <summary>

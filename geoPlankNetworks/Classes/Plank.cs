@@ -11,35 +11,39 @@ namespace geoPlankNetworks.DataTypes
 {
     public class Plank
     {
-        public Brep MidSurface;
-        public Brep PlankSolid;
+        public Brep OriginalMidSurface; 
+        public Brep IntersectedMidSrf;
+        public List<Brep> PlankSolid;
         public double PlankThickness;
         public double PlankWidth;
+        public double PlankLength;
         public int PlankRefinement;
-        public Brep OriginalMidSurface;
         public int PlankPosition;
+        public List<int> CullValues;
 
         public Plank()
         {
         }
 
-        public Plank(Brep midSurface, Brep plankSolid, double plankThickness, double plankWidth, int plankRefinement)
+        public Plank(Brep intersectedMidSrf, List<Brep> plankSolid, double plankThickness, double plankWidth, int plankRefinement)
         {
-            MidSurface = midSurface;
+            IntersectedMidSrf = intersectedMidSrf;
             PlankSolid = plankSolid;
             PlankThickness = plankThickness;
             PlankWidth = plankWidth;
             PlankRefinement = plankRefinement;
         }
-        public Plank(Brep midSurface, Brep plankSolid, double plankThickness, double plankWidth, int plankRefinement, Brep originalMidSurface, int plankPosition)
+        public Plank(Brep originalMidSurface, Brep intersectedMidSrf, List<Brep> plankSolid, double plankThickness, double plankWidth,double plankLength, int plankRefinement, int plankPosition, List<int> cullValues)
         {
-            MidSurface = midSurface;
+            OriginalMidSurface = originalMidSurface;
+            IntersectedMidSrf = intersectedMidSrf;
             PlankSolid = plankSolid;
             PlankThickness = plankThickness;
             PlankWidth = plankWidth;
+            PlankLength = plankLength;
             PlankRefinement = plankRefinement;
-            OriginalMidSurface = originalMidSurface;
             PlankPosition = plankPosition;
+            CullValues = cullValues;
         }
     }
 }

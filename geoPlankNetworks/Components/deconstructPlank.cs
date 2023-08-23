@@ -38,7 +38,8 @@ namespace geoPlankNetworks.Components
         {
             pManager.AddGenericParameter("Plank", "P", "P", GH_ParamAccess.item);
             pManager.AddBrepParameter("Mid surface", "mS", "mS", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Plank solid","pS","pS",GH_ParamAccess.item);
+            pManager.AddBrepParameter("Plank solid","pS","pS",GH_ParamAccess.list);
+            pManager.AddIntegerParameter("Cull Values", "CV", "CV", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -54,8 +55,9 @@ namespace geoPlankNetworks.Components
             if (!DA.GetData(0, ref iPlank)) return;
 
             DA.SetData(0, iPlank);
-            DA.SetData(1,iPlank.MidSurface);
-            DA.SetData(2,iPlank.PlankSolid);
+            DA.SetData(1,iPlank.IntersectedMidSrf);
+            DA.SetDataList(2,iPlank.PlankSolid);
+            DA.SetDataList(3, iPlank.CullValues);
         }
 
         /// <summary>
