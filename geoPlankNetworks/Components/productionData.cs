@@ -59,48 +59,33 @@ namespace geoPlankNetworks.Components
                 for (int j = 0; j < iPlankTree.Branches[i].Count; j++)
                 {
                     iPlankTree.Branches[i][j].CastTo(out Plank plank);
-                    List<Curve> plankNakedEdges = new List<Curve>();
                     List<Curve> plankInteriorEdges = new List<Curve>();
                     foreach (BrepEdge edge in plank.IntersectedMidSrf.Edges)
                     {
-                        if (edge.Valence == EdgeAdjacency.Naked)
-                        {
-                            plankNakedEdges.Add(edge);
-                        }
-
-                        else
+                        if (edge.Valence == EdgeAdjacency.Interior)
                         {
                             plankInteriorEdges.Add(edge);
                         }
                     }
-                    Curve plankOutline = Curve.JoinCurves(plankNakedEdges, 0.01)[0];
-                    plankOutline.Domain = new Interval(0.00, 1.00);
 
+                    Curve origMidSrfOutline = Curve.JoinCurves(plank.OriginalMidSurface.Edges, tol)[0];
+                    origMidSrfOutline.Reverse();
+                    origMidSrfOutline.Domain = new Interval(0.00, 1.00);
 
-
-                    double xCoord = 0.0;
+                    double xCoord = plank.PlankWidth*(1+1/4.0)*(i* iPlankTree.Branches[i].Count+j);
                     Curve firstLn = new Line(new Point3d(xCoord, 0,0),new Point3d(xCoord, plank.PlankLength,0)).ToNurbsCurve();
                     Curve secondLn = new Line(new Point3d(xCoord+plank.PlankWidth, 0,0), new Point3d(xCoord + plank.PlankWidth, plank.PlankLength,0)).ToNurbsCurve();
                     Brep unrolledPlank = Brep.CreateFromLoft(new List<Curve> { firstLn, secondLn }, Point3d.Unset, Point3d.Unset, LoftType.Normal, false)[0];
-
-                    List<Curve> unrolledNakedEdges = new List<Curve>();
-                    foreach (BrepEdge edge in unrolledPlank.Edges)
-                    {
-                        if (edge.Valence == EdgeAdjacency.Naked)
-                        {
-                            unrolledNakedEdges.Add(edge);
-                        }
-                    }
-                    Curve unrolledPlankOutline = Curve.JoinCurves(unrolledNakedEdges, tol)[0];
+                    Curve unrolledPlankOutline = Curve.JoinCurves(unrolledPlank.Edges, tol)[0];
                     unrolledPlankOutline.Domain = new Interval(0.00, 1.00);
 
 
                     foreach (Curve intersectionCrv in plankInteriorEdges)
                     {
-                        var events = Rhino.Geometry.Intersect.Intersection.CurveCurve(plankOutline, intersectionCrv, tol, tol);
+                        var events = Rhino.Geometry.Intersect.Intersection.CurveCurve(origMidSrfOutline, intersectionCrv, tol, tol);
                         Point3d ptA = unrolledPlankOutline.PointAt(events[0].ParameterA);
-                        /*Point3d ptB = unrolledPlankOutline.PointAt(events[1].ParameterA);
-                        oCuts.Add(new Line(ptA, ptB), new GH_Path(iPlankTree.Paths[i]));*/
+                        Point3d ptB = unrolledPlankOutline.PointAt(events[1].ParameterA);
+                        oCuts.Add(new Line(ptA, ptB), new GH_Path(iPlankTree.Paths[i]));
                     }
 
                     oOutline.Add(unrolledPlankOutline , new GH_Path(iPlankTree.Paths[i]));
