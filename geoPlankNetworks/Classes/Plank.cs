@@ -11,6 +11,8 @@ namespace geoPlankNetworks.DataTypes
 {
     public class Plank
     {
+        public Curve OriginalCenterCrv;
+        public List<Curve>  CenterCurves;
         public Brep OriginalMidSurface; 
         public Brep IntersectedMidSrf;
         public List<Brep> PlankSolid;
@@ -33,8 +35,10 @@ namespace geoPlankNetworks.DataTypes
             PlankWidth = plankWidth;
             PlankRefinement = plankRefinement;
         }
-        public Plank(Brep originalMidSurface, Brep intersectedMidSrf, List<Brep> plankSolid, double plankThickness, double plankWidth,double plankLength, int plankRefinement, int plankPosition, List<int> cullValues)
+        public Plank(Curve originalCenterCrv, List<Curve> centerCurves, Brep originalMidSurface, Brep intersectedMidSrf, List<Brep> plankSolid, double plankThickness, double plankWidth,double plankLength, int plankRefinement, int plankPosition, List<int> cullValues)
         {
+            OriginalCenterCrv = originalCenterCrv;
+            CenterCurves = centerCurves;
             OriginalMidSurface = originalMidSurface;
             IntersectedMidSrf = intersectedMidSrf;
             PlankSolid = plankSolid;

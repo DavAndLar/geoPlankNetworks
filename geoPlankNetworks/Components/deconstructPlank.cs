@@ -37,9 +37,10 @@ namespace geoPlankNetworks.Components
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Plank", "P", "P", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Mid surface", "mS", "mS", GH_ParamAccess.item);
-            pManager.AddBrepParameter("Plank solid","pS","pS",GH_ParamAccess.list);
-            pManager.AddIntegerParameter("Cull Values", "CV", "CV", GH_ParamAccess.list);
+            pManager.AddCurveParameter("Center curve", "C", "C", GH_ParamAccess.list);
+            pManager.AddBrepParameter("Mid surface", "S", "mS", GH_ParamAccess.item);
+            pManager.AddBrepParameter("Plank solid","S","pS",GH_ParamAccess.list);
+            pManager.AddBrepParameter("Original mid surface", "oS", "Original mid surface", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -55,9 +56,10 @@ namespace geoPlankNetworks.Components
             if (!DA.GetData(0, ref iPlank)) return;
 
             DA.SetData(0, iPlank);
-            DA.SetData(1,iPlank.IntersectedMidSrf);
-            DA.SetDataList(2,iPlank.PlankSolid);
-            DA.SetDataList(3, iPlank.CullValues);
+            DA.SetDataList(1, iPlank.CenterCurves);
+            DA.SetData(2,iPlank.IntersectedMidSrf);
+            DA.SetDataList(3,iPlank.PlankSolid);
+            DA.SetData(4, iPlank.OriginalMidSurface);
         }
 
         /// <summary>
@@ -69,7 +71,7 @@ namespace geoPlankNetworks.Components
             {
                 //You can add image files to your project resources and access them like this:
                 // return Resources.IconForThisComponent;
-                return null;
+                return Properties.Resources.deconstructPlank;
             }
         }
 

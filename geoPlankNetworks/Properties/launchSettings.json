@@ -1,9 +1,10 @@
 {
-  "profiles": {
-    "geoPlankNetworks": {
-      "commandName": "Executable",
-      "executablePath": "C:\\Program Files\\Rhino 7\\System\\Rhino.exe",
-      "commandLineArgs": ""
+    "profiles": {
+        "geoPlankNetworks": {
+            "commandName": "Executable",
+            "executablePath": "C:\\Program Files\\Rhino 8\\System\\Rhino.exe",
+            "commandLineArgs": "/nosplash /netfx /runscript=\"-grasshopper window show _enter\"",
+            //"nativeDebugging": false
+        }
     }
-  }
 }

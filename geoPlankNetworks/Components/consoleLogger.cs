@@ -1,37 +1,40 @@
 ﻿using System;
 using System.Collections.Generic;
-using geoPlankNetworks.DataTypes;
+
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 
+using geoPlankNetworks.Utilities;
+
 namespace geoPlankNetworks.Components
 {
-    public class plankContainer : GH_Component
+    public class consoleLogger : GH_Component
     {
         /// <summary>
-        /// Initializes a new instance of the plankContainer class.
+        /// Initializes a new instance of the consoleLogger class.
         /// </summary>
-        public plankContainer()
-          : base("Plank", "P",
-              "Contains a collection of planks",
-              "gPN", "Params")
+        public consoleLogger()
+          : base("consoleLogger", "cL",
+              "Description",
+              "gPN", "Debugging")
         {
         }
 
         /// <summary>
         /// Registers all the input parameters for this component.
         /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("", "", "", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Update", "U", "", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Clear","C","",GH_ParamAccess.item);
         }
 
         /// <summary>
         /// Registers all the output parameters for this component.
         /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("", "", "", GH_ParamAccess.item);
+            pManager.AddTextParameter("Logs", "L", "", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -40,10 +43,20 @@ namespace geoPlankNetworks.Components
         /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            Plank iPlank = null;
-            if (!DA.GetData(0, ref iPlank)) return;
+            bool update = false;
+            bool clear = false;
 
-            DA.SetData(0, iPlank);
+            if (!DA.GetData(0, ref update)) return;
+            if (!DA.GetData(1, ref clear)) return;
+
+            if (!update) return;
+
+            if(clear) gpnConsole.Clear();
+
+            List<string> logs = gpnConsole.Read();
+
+            DA.SetDataList(0, logs);
+
         }
 
         /// <summary>
@@ -55,7 +68,7 @@ namespace geoPlankNetworks.Components
             {
                 //You can add image files to your project resources and access them like this:
                 // return Resources.IconForThisComponent;
-                return Properties.Resources.plankContainer;
+                return null;
             }
         }
 
@@ -64,7 +77,7 @@ namespace geoPlankNetworks.Components
         /// </summary>
         public override Guid ComponentGuid
         {
-            get { return new Guid("74D7511A-22AF-4BD7-A5D7-99FDE21FA19B"); }
+            get { return new Guid("9E5680F4-856E-4EDE-9265-4D0097253FEC"); }
         }
     }
 }
