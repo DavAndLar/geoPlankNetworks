@@ -38,6 +38,9 @@ namespace geoPlankNetworks.Components
         {
             pManager.AddCurveParameter("Plank outline", "O", "Plank outline", GH_ParamAccess.tree);
             pManager.AddLineParameter("Cuts", "C", "Cuts", GH_ParamAccess.tree);
+            pManager.AddPointParameter("Hole positions", "H", "Position of holes", GH_ParamAccess.tree);
+            pManager.AddCurveParameter("Name positions", "N", "Position of lamella tag", GH_ParamAccess.tree);
+            pManager.AddPointParameter("Bolt points", "P", "Bolt points", GH_ParamAccess.tree);
         }
 
         /// <summary>
@@ -54,6 +57,11 @@ namespace geoPlankNetworks.Components
 
             DataTree<Curve> oOutline = new DataTree<Curve>();
             DataTree<Line> oCuts = new DataTree<Line>();
+            DataTree<Point3d> oBoltPoints = new DataTree<Point3d>();
+            DataTree<Point3d> oBoltMarkings = new DataTree<Point3d>();
+            DataTree<Curve> oTagPositions = new DataTree<Curve>();
+            DataTree<Curve> oOrigOutline = new DataTree<Curve>();
+
             for (int i = 0; i < iPlankTree.PathCount; i++)
             {
                 for (int j = 0; j < iPlankTree.Branches[i].Count; j++)
@@ -78,22 +86,73 @@ namespace geoPlankNetworks.Components
                     Brep unrolledPlank = Brep.CreateFromLoft(new List<Curve> { firstLn, secondLn }, Point3d.Unset, Point3d.Unset, LoftType.Normal, false)[0];
                     Curve unrolledPlankOutline = Curve.JoinCurves(unrolledPlank.Edges, tol)[0];
                     unrolledPlankOutline.Domain = new Interval(0.00, 1.00);
-
+                    oOutline.Add(unrolledPlankOutline, new GH_Path(iPlankTree.Paths[i]));
+                    oOrigOutline.Add(origMidSrfOutline, new GH_Path(iPlankTree.Paths[i]));
 
                     foreach (Curve intersectionCrv in plankInteriorEdges)
                     {
                         var events = Rhino.Geometry.Intersect.Intersection.CurveCurve(origMidSrfOutline, intersectionCrv, tol, tol);
                         Point3d ptA = unrolledPlankOutline.PointAt(events[0].ParameterA);
                         Point3d ptB = unrolledPlankOutline.PointAt(events[1].ParameterA);
-                        oCuts.Add(new Line(ptA, ptB), new GH_Path(iPlankTree.Paths[i]));
+                        oCuts.Add(new Line(ptA, ptB), new GH_Path(iPlankTree.Paths[i]).AppendElement(j));
+                    }                   
+
+                    double length = 0.0;
+                    Curve centerCrv = plank.OriginalCenterCrv;
+                    centerCrv.Domain = new Interval(0.0, 1.0);
+                    List<double> intersectionTs = new List<double>();
+                    for (int k = 0; k < plank.CenterCurves.Count; k++)
+                    {
+                        if (plank.CullValues[k] < 1)
+                        {
+                            Curve tagPos = new Line(new Point3d(xCoord + plank.PlankWidth / 2, length, 0), new Point3d(xCoord + plank.PlankWidth / 2, length+plank.CenterCurves[k].GetLength(), 0)).ToNurbsCurve();
+                            oTagPositions.Add(tagPos, new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
+                            for (int l = 0; l < iPlankTree.PathCount; l++)
+                            {
+                                if (iPlankTree.Paths[i].Indices[0] != iPlankTree.Paths[l].Indices[0] && iPlankTree.Paths[i].Indices[2] == iPlankTree.Paths[l].Indices[2])
+                                {
+                                    for (int m = 0; m < iPlankTree.Branches[l].Count; m++)
+                                    {
+                                        iPlankTree.Branches[iPlankTree.Paths.IndexOf(iPlankTree.Paths[l])][m].CastTo(out Plank cutter);
+                                        if (plank.PlankPosition == cutter.PlankPosition)
+                                        {
+                                            Curve cutterCrv = Curve.JoinCurves(cutter.CenterCurves, tol)[0];
+                                            if (Rhino.Geometry.Intersect.Intersection.CurveCurve(plank.CenterCurves[k], cutterCrv, plank.PlankThickness, plank.PlankThickness).Count > 0)
+                                            {
+                                                var events = Rhino.Geometry.Intersect.Intersection.CurveCurve(centerCrv, cutterCrv, plank.PlankThickness, plank.PlankThickness);
+                                                foreach(var ev in events)
+                                                {
+                                                    oBoltPoints.Add(ev.PointA, new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
+                                                    intersectionTs.Add(ev.ParameterA);
+                                                }
+                                                //oBoltPoints.Add(events[0].PointA, new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
+                                                //intersectionTs.Add(events[0].ParameterA);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        length += plank.CenterCurves[k].GetLength();
                     }
 
-                    oOutline.Add(unrolledPlankOutline , new GH_Path(iPlankTree.Paths[i]));
+                    if (intersectionTs.Count > 0)
+                    {
+                        LineCurve unrolledCenterCrv = new LineCurve(new Point2d(xCoord + plank.PlankWidth / 2, 0), new Point2d(xCoord + plank.PlankWidth / 2, plank.PlankLength));
+                        unrolledCenterCrv.Domain = new Interval(0.0, 1.0);
+                        foreach(double t in intersectionTs)
+                        { 
+                            oBoltMarkings.Add(unrolledCenterCrv.PointAtNormalizedLength(t), new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
+                        }
+                    }
                 }
             }
 
             DA.SetDataTree(0, oOutline);
             DA.SetDataTree(1, oCuts);
+            DA.SetDataTree(2, oBoltMarkings);
+            DA.SetDataTree(3, oOrigOutline);
+            DA.SetDataTree(4, oBoltPoints);
         }
 
         /// <summary>
@@ -105,7 +164,7 @@ namespace geoPlankNetworks.Components
             {
                 //You can add image files to your project resources and access them like this:
                 // return Resources.IconForThisComponent;
-                return null;
+                return Properties.Resources.productionData;
             }
         }
 

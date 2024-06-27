@@ -35,6 +35,9 @@ namespace geoPlankNetworks.Components
             pManager.AddNumberParameter("Thickness", "t", "Thickness of plank", GH_ParamAccess.item);
             pManager.AddNumberParameter("Width", "W", "Width of plank", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Layers","L","Number of plank bundles (one bundle equals the same number as geodesic directions).",GH_ParamAccess.item);
+            //pManager.AddNumberParameter("Blank lenght", "B", "Length of blank, from which the planks will be produced.", GH_ParamAccess.item);
+
+            //pManager[6].Optional = true;
         }
 
         /// <summary>
@@ -57,6 +60,7 @@ namespace geoPlankNetworks.Components
             double iThickness = 0.0;
             double iWidth = 0.0;
             int iNoLayers = 0;
+            //double iExtension = 0.0;
 
             if (!DA.GetDataTree(0, out iCenterLines)) return;
             if (!DA.GetData(1, ref geomInput)) return;
@@ -64,6 +68,18 @@ namespace geoPlankNetworks.Components
             if (!DA.GetData(3, ref iThickness)) return;
             if (!DA.GetData(4, ref iWidth)) return;
             if (!DA.GetData(5, ref iNoLayers)) return;
+            //if (!DA.GetData(6, ref iExtension)) return;
+
+            if (iRef < 10)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "It is recomended to use a refinement of at least 10.");
+                return;
+            }
+            else if (iRef <= 2) 
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Refinement must be bigger than 1");
+                return;
+            }
 
             if (iThickness <= 0.0)
             {
@@ -79,9 +95,21 @@ namespace geoPlankNetworks.Components
 
             if (iNoLayers <=0)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Number of layers needs to be at least 1 and positive.");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Number of layers needs to be equal to or larger than 1.");
                 return;
             }
+
+            /*double curveLength = 0.0;
+            foreach(GH_Curve curve in iCenterLines.FlattenData())
+            {
+                if(curve.Value.GetLength() > curveLength) { curveLength= curve.Value.GetLength(); }
+            }
+
+            if (iExtension < curveLength)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The blank length needs to be at least as long as the longest geodesic.");
+                return;
+            }*/
 
             double tol = Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance;
             int planksPerBundle = iCenterLines.Branches.Count;
@@ -153,10 +181,12 @@ namespace geoPlankNetworks.Components
                                 midSurface.Faces[0].Evaluate(u, 0.5, 1, out Point3d midPt, out _);
                                 midPts.Add(midPt);
                             }
-                            NurbsCurve centerCrv = NurbsCurve.Create(false, 3, midPts);
+                            Curve centerCrv = Curve.CreateInterpolatedCurve(midPts, 3);
+
+                            
 
                             GH_Path path = new GH_Path(i, j, l);
-                            oPlankTree.Add(new Plank(midSurface, midSurface, new List<Brep> { plankSolid }, iThickness, iWidth, centerCrv.GetLength(), iRef, m, new List<int> { 0 }), path);
+                            oPlankTree.Add(new Plank(centerCrv, new List<Curve> { centerCrv }, midSurface, midSurface, new List<Brep> { plankSolid }, iThickness, iWidth, centerCrv.GetLength(), iRef, m, new List<int> { 0 }), path);
                         }
                     }
                 }
@@ -173,8 +203,8 @@ namespace geoPlankNetworks.Components
             get
             {
                 //You can add image files to your project resources and access them like this:
-                // return Resources.IconForThisComponent;
-                return null;
+                return Properties.Resources.constructPlank;
+                //return null;
             }
         }
 
