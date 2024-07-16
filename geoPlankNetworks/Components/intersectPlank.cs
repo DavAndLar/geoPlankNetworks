@@ -11,6 +11,7 @@ using Rhino.Geometry;
 using geoPlankNetworks.DataTypes;
 using geoPlankNetworks.Utilities;
 using System.Diagnostics;
+using System.Linq;
 
 namespace geoPlankNetworks.Components
 {
@@ -235,8 +236,17 @@ namespace geoPlankNetworks.Components
 
                         Brep intersectedMidSrf = Brep.JoinBreps(midSrfSegments, tol)[0];
 
+                        int[] sortedCrvSegmentIndices = SortCrvsAlongCurve(curveSegments, plank.OriginalCenterCrv);
+                        List<Curve> sortedCrvSegments = new List<Curve>();
+                        List<int> sortedCullValues= new List<int>();
+                        for (int index = 0; index < sortedCrvSegmentIndices.Length; index++)
+                        {
+                            sortedCrvSegments.Add(curveSegments[sortedCrvSegmentIndices[index]]);
+                            sortedCullValues.Add(cullValues[sortedCrvSegmentIndices[index]]);
+                        }
+
                         GH_Path path = new GH_Path(iPlankTree.Paths[i]);
-                        oPlanks.Add(new Plank(plank.OriginalCenterCrv, curveSegments, plank.OriginalMidSurface, intersectedMidSrf, solidSegments, plank.PlankThickness, plank.PlankWidth, plank.PlankLength, plank.PlankRefinement, plank.PlankPosition, cullValues), path);
+                        oPlanks.Add(new Plank(plank.OriginalCenterCrv, sortedCrvSegments, plank.OriginalMidSurface, intersectedMidSrf, solidSegments, plank.PlankThickness, plank.PlankWidth, plank.PlankLength, plank.PlankRefinement, plank.PlankPosition, sortedCullValues), path);
                     }
                 }
 
@@ -245,7 +255,7 @@ namespace geoPlankNetworks.Components
             }
             else
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "The data trees needs to have the following structure {direction; axis; package}");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The data trees needs to have the following structure {direction; axis; package}");
                 return;
             }
         }
@@ -269,6 +279,27 @@ namespace geoPlankNetworks.Components
         public override Guid ComponentGuid
         {
             get { return new Guid("DFE3C213-AB5E-48E3-BE7E-3A381A293CEB"); }
+        }
+
+        public int[] SortCrvsAlongCurve(List<Curve> curves, Curve crv)
+        {
+            int L = curves.Count;
+            List<Point3d> midPts = new List<Point3d>();
+            Curve[] crvsArray = curves.ToArray();
+            foreach (Curve curve in crvsArray)
+                midPts.Add(curve.PointAtNormalizedLength(0.5));
+
+            int[] iA = new int[L];
+            double[] tA = new double[L];
+            for (int i = 0; i < L; i++)
+            {
+                double t;
+                crv.ClosestPoint(midPts[i], out t);
+                iA[i] = i;
+                tA[i] = t;
+            }
+            Array.Sort(tA, iA);
+            return iA;
         }
     }
 }
