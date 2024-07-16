@@ -39,7 +39,7 @@ namespace geoPlankNetworks.Components
             pManager.AddCurveParameter("Plank outline", "O", "Plank outline", GH_ParamAccess.tree);
             pManager.AddLineParameter("Cuts", "C", "Cuts", GH_ParamAccess.tree);
             pManager.AddPointParameter("Hole positions", "H", "Position of holes", GH_ParamAccess.tree);
-            pManager.AddCurveParameter("Name positions", "N", "Position of lamella tag", GH_ParamAccess.tree);
+            pManager.AddPointParameter("Name positions", "N", "Position of lamella tag", GH_ParamAccess.tree);
             pManager.AddPointParameter("Bolt points", "P", "Bolt points", GH_ParamAccess.tree);
         }
 
@@ -59,7 +59,7 @@ namespace geoPlankNetworks.Components
             DataTree<Line> oCuts = new DataTree<Line>();
             DataTree<Point3d> oBoltPoints = new DataTree<Point3d>();
             DataTree<Point3d> oBoltMarkings = new DataTree<Point3d>();
-            DataTree<Curve> oTagPositions = new DataTree<Curve>();
+            DataTree<Point3d> oTagPositions = new DataTree<Point3d>();
             DataTree<Curve> oOrigOutline = new DataTree<Curve>();
 
             for (int i = 0; i < iPlankTree.PathCount; i++)
@@ -80,11 +80,12 @@ namespace geoPlankNetworks.Components
                     origMidSrfOutline.Reverse();
                     origMidSrfOutline.Domain = new Interval(0.00, 1.00);
 
-                    double xCoord = plank.PlankWidth*(1+1/4.0)*(i* iPlankTree.Branches[i].Count+j);
-                    Curve firstLn = new Line(new Point3d(xCoord, 0,0),new Point3d(xCoord, plank.PlankLength,0)).ToNurbsCurve();
-                    Curve secondLn = new Line(new Point3d(xCoord+plank.PlankWidth, 0,0), new Point3d(xCoord + plank.PlankWidth, plank.PlankLength,0)).ToNurbsCurve();
+                    double xCoord = plank.PlankWidth * (1 + 1 / 4.0) * (i * iPlankTree.Branches[i].Count + j);
+                    Curve firstLn = new Line(new Point3d(xCoord, 0, 0), new Point3d(xCoord, plank.PlankLength, 0)).ToNurbsCurve();
+                    Curve secondLn = new Line(new Point3d(xCoord + plank.PlankWidth, 0, 0), new Point3d(xCoord + plank.PlankWidth, plank.PlankLength, 0)).ToNurbsCurve();
                     Brep unrolledPlank = Brep.CreateFromLoft(new List<Curve> { firstLn, secondLn }, Point3d.Unset, Point3d.Unset, LoftType.Normal, false)[0];
                     Curve unrolledPlankOutline = Curve.JoinCurves(unrolledPlank.Edges, tol)[0];
+                    Curve unrolledCenterLine = new Line(new Point3d(xCoord + plank.PlankWidth / 2, 0, 0), new Point3d(xCoord + plank.PlankWidth / 2, plank.PlankLength, 0)).ToNurbsCurve();
                     unrolledPlankOutline.Domain = new Interval(0.00, 1.00);
                     oOutline.Add(unrolledPlankOutline, new GH_Path(iPlankTree.Paths[i]));
                     oOrigOutline.Add(origMidSrfOutline, new GH_Path(iPlankTree.Paths[i]));
@@ -95,18 +96,20 @@ namespace geoPlankNetworks.Components
                         Point3d ptA = unrolledPlankOutline.PointAt(events[0].ParameterA);
                         Point3d ptB = unrolledPlankOutline.PointAt(events[1].ParameterA);
                         oCuts.Add(new Line(ptA, ptB), new GH_Path(iPlankTree.Paths[i]).AppendElement(j));
-                    }                   
+                    }
 
                     double length = 0.0;
                     Curve centerCrv = plank.OriginalCenterCrv;
                     centerCrv.Domain = new Interval(0.0, 1.0);
                     List<double> intersectionTs = new List<double>();
+                    List<Curve> unrolledCenterCrvs = new List<Curve>();
                     for (int k = 0; k < plank.CenterCurves.Count; k++)
                     {
+                        unrolledCenterCrvs.Add(new Line(new Point3d(xCoord + plank.PlankWidth / 2, length,0), new Point3d(xCoord + plank.PlankWidth / 2, length + plank.CenterCurves[k].GetLength(),0)).ToNurbsCurve());
                         if (plank.CullValues[k] < 1)
                         {
-                            Curve tagPos = new Line(new Point3d(xCoord + plank.PlankWidth / 2, length, 0), new Point3d(xCoord + plank.PlankWidth / 2, length+plank.CenterCurves[k].GetLength(), 0)).ToNurbsCurve();
-                            oTagPositions.Add(tagPos, new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
+                            //oTagPositions.Add(unrolledCenterCrvs[k].PointAtNormalizedLength(0.5), new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
+                            //oTagPositions.Add(unrolledCenterCrvs[k], new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
                             for (int l = 0; l < iPlankTree.PathCount; l++)
                             {
                                 if (iPlankTree.Paths[i].Indices[0] != iPlankTree.Paths[l].Indices[0] && iPlankTree.Paths[i].Indices[2] == iPlankTree.Paths[l].Indices[2])
@@ -120,13 +123,11 @@ namespace geoPlankNetworks.Components
                                             if (Rhino.Geometry.Intersect.Intersection.CurveCurve(plank.CenterCurves[k], cutterCrv, plank.PlankThickness, plank.PlankThickness).Count > 0)
                                             {
                                                 var events = Rhino.Geometry.Intersect.Intersection.CurveCurve(centerCrv, cutterCrv, plank.PlankThickness, plank.PlankThickness);
-                                                foreach(var ev in events)
+                                                foreach (var ev in events)
                                                 {
                                                     oBoltPoints.Add(ev.PointA, new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
                                                     intersectionTs.Add(ev.ParameterA);
                                                 }
-                                                //oBoltPoints.Add(events[0].PointA, new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
-                                                //intersectionTs.Add(events[0].ParameterA);
                                             }
                                         }
                                     }
@@ -134,6 +135,13 @@ namespace geoPlankNetworks.Components
                             }
                         }
                         length += plank.CenterCurves[k].GetLength();
+                    }
+                    int[] sortedUnrolledCrvSegmentIndices= SortCrvsAlongCurve(unrolledCenterCrvs, unrolledCenterLine);
+
+                    for (int index = 0; index < sortedUnrolledCrvSegmentIndices.Length; index++)
+                    {
+                        if (plank.CullValues[index] < 1)
+                            oTagPositions.Add(unrolledCenterCrvs[sortedUnrolledCrvSegmentIndices[index]].PointAtNormalizedLength(0.5), new GH_Path(iPlankTree.Paths[i].AppendElement(j)));
                     }
 
                     if (intersectionTs.Count > 0)
@@ -151,7 +159,7 @@ namespace geoPlankNetworks.Components
             DA.SetDataTree(0, oOutline);
             DA.SetDataTree(1, oCuts);
             DA.SetDataTree(2, oBoltMarkings);
-            DA.SetDataTree(3, oOrigOutline);
+            DA.SetDataTree(3, oTagPositions);
             DA.SetDataTree(4, oBoltPoints);
         }
 
@@ -174,6 +182,26 @@ namespace geoPlankNetworks.Components
         public override Guid ComponentGuid
         {
             get { return new Guid("E3704416-3612-4F68-91B7-3E0CECACA8DC"); }
+        }
+        public int[] SortCrvsAlongCurve(List<Curve> curves, Curve crv)
+        {
+            int L = curves.Count;
+            List<Point3d> midPts = new List<Point3d>();
+            Curve[] crvsArray = curves.ToArray();
+            foreach (Curve curve in crvsArray)
+                midPts.Add(curve.PointAtNormalizedLength(0.5));
+
+            int[] iA = new int[L];
+            double[] tA = new double[L];
+            for (int i = 0; i < L; i++)
+            {
+                double t;
+                crv.ClosestPoint(midPts[i], out t);
+                iA[i] = i;
+                tA[i] = t;
+            }
+            Array.Sort(tA, iA);
+            return iA;
         }
     }
 }

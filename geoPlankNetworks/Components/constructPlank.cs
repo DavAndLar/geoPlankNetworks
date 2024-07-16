@@ -35,6 +35,7 @@ namespace geoPlankNetworks.Components
             pManager.AddNumberParameter("Thickness", "t", "Thickness of plank", GH_ParamAccess.item);
             pManager.AddNumberParameter("Width", "W", "Width of plank", GH_ParamAccess.item);
             pManager.AddIntegerParameter("Layers","L","Number of plank bundles (one bundle equals the same number as geodesic directions).",GH_ParamAccess.item);
+            pManager.AddNumberParameter("Tolerance", "T", "Maximum allowed distance between curve and surface.", GH_ParamAccess.item, 0.001);
             //pManager.AddNumberParameter("Blank lenght", "B", "Length of blank, from which the planks will be produced.", GH_ParamAccess.item);
 
             //pManager[6].Optional = true;
@@ -60,6 +61,7 @@ namespace geoPlankNetworks.Components
             double iThickness = 0.0;
             double iWidth = 0.0;
             int iNoLayers = 0;
+            double iTol = 0.0;
             //double iExtension = 0.0;
 
             if (!DA.GetDataTree(0, out iCenterLines)) return;
@@ -68,6 +70,7 @@ namespace geoPlankNetworks.Components
             if (!DA.GetData(3, ref iThickness)) return;
             if (!DA.GetData(4, ref iWidth)) return;
             if (!DA.GetData(5, ref iNoLayers)) return;
+            if (!DA.GetData(6, ref iTol)) return;
             //if (!DA.GetData(6, ref iExtension)) return;
 
             if (iRef < 10)
@@ -77,7 +80,7 @@ namespace geoPlankNetworks.Components
             }
             else if (iRef <= 2) 
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Refinement must be bigger than 1");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Refinement must be bigger than 1");
                 return;
             }
 
@@ -99,6 +102,12 @@ namespace geoPlankNetworks.Components
                 return;
             }
 
+            if (iTol <= 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Tolerance needs to be positive.");
+                return;
+            }
+
             /*double curveLength = 0.0;
             foreach(GH_Curve curve in iCenterLines.FlattenData())
             {
@@ -111,7 +120,7 @@ namespace geoPlankNetworks.Components
                 return;
             }*/
 
-            double tol = Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance;
+            double tol = iTol;
             int planksPerBundle = iCenterLines.Branches.Count;
             DataTree<Plank> oPlankTree = new DataTree<Plank>();
 
@@ -134,6 +143,11 @@ namespace geoPlankNetworks.Components
                             Vector3d T = centerLine.TangentAt(t);
                             tangents.Add(T);
                             iBaseSrf.ClosestPoint(centerLine.PointAt(t), out Point3d closestPt, out _, out _, out _, tol, out Vector3d N);
+                            if(!closestPt.IsValid)
+                            {
+                                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The current curve lies too far away from the surface. Either increase the model tolerance or remodel the curve");
+                                return;
+                            }
                             normals.Add(N);
                             Vector3d binormal = Vector3d.CrossProduct(T, N);
                             biNormals.Add(binormal);
@@ -147,6 +161,11 @@ namespace geoPlankNetworks.Components
                             Vector3d T = centerLine.TangentAt(t);
                             tangents.Add(T);
                             iBaseSrf.ClosestPoint(centerLine.PointAt(t), out Point3d closestPt, out Vector3d N, tol);
+                            if (!closestPt.IsValid)
+                            {
+                                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "The current curve lies too far away from the surface. Either increase the model tolerance or remodel the curve");
+                                return;
+                            }
                             normals.Add(N);
                             Vector3d binormal = Vector3d.CrossProduct(T, N);
                             biNormals.Add(binormal);
@@ -158,6 +177,7 @@ namespace geoPlankNetworks.Components
                             return;
                         }
                     }
+                    
                     Brep baseMidSurface = Brep.CreateFromLoft(rulings, Point3d.Unset, Point3d.Unset, LoftType.Normal, false)[0];                   
                     for (int l = 0; l < iNoLayers; l++)
                     {
